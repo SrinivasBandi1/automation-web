@@ -19,27 +19,70 @@ public class OptionsManager {
 	}
 
 	// Get ChromeOptions based on properties
+	// Get ChromeOptions based on properties
+	/*
+	 * public ChromeOptions getChromeOptions() { co = new ChromeOptions();
+	 * co.addArguments("--use-fake-ui-for-media-stream"); // Automatically allow or
+	 * block camera and // microphone co.addArguments("--disable-media-stream"); //
+	 * Disable media stream co.addArguments("--remote-allow-origins=*");
+	 * co.addArguments("--use-fake-ui-for-media-stream");
+	 * co.addArguments("--disable-media-stream"); co.addArguments("--incognito");
+	 * co.addArguments("--window-size=1920,1080");
+	 * 
+	 * REQUIRED FOR GITHUB ACTIONS / LINUX / CI co.addArguments("--headless=new");
+	 * co.addArguments("--no-sandbox"); co.addArguments("--disable-dev-shm-usage");
+	 * co.addArguments("--disable-gpu"); co.addArguments("--disable-extensions"); //
+	 * Check if "headless" property is set to true, and if so, add the "--headless"
+	 * // argument if (Boolean.parseBoolean(prop.getProperty("headless"))) {
+	 * co.addArguments("--headless"); co.addArguments("--window-size=1920,1080");
+	 * return co; }
+	 * 
+	 * // Check if "incognito" property is set to true, and if so, add the //
+	 * "--incognito" argument if
+	 * (Boolean.parseBoolean(prop.getProperty("incognito"))) {
+	 * co.addArguments("--incognito"); co.addArguments("--window-size=1920,1080"); }
+	 * 
+	 * return co; // Return the configured ChromeOptions }
+	 */
 	public ChromeOptions getChromeOptions() {
-		co = new ChromeOptions();
-		co.addArguments("--use-fake-ui-for-media-stream"); // Automatically allow or block camera and															// microphone
-		co.addArguments("--disable-media-stream"); // Disable media stream
 
-		// Check if "headless" property is set to true, and if so, add the "--headless"
-		// argument
-		if (Boolean.parseBoolean(prop.getProperty("headless"))) {
-			co.addArguments("--headless");
-			co.addArguments("--window-size=1920,1080");
-			return co;
-		}
+	    ChromeOptions co = new ChromeOptions();
 
-		// Check if "incognito" property is set to true, and if so, add the
-		// "--incognito" argument
-		if (Boolean.parseBoolean(prop.getProperty("incognito"))) {
-			co.addArguments("--incognito");
-			co.addArguments("--window-size=1920,1080");
-		}
+	    // Always required
+	    co.addArguments("--remote-allow-origins=*");
+	    co.addArguments("--use-fake-ui-for-media-stream");
+	    co.addArguments("--disable-media-stream");
+	    co.addArguments("--window-size=1920,1080");
 
-		return co; // Return the configured ChromeOptions
+	    // Optional from config
+	    if (Boolean.parseBoolean(prop.getProperty("incognito"))) {
+	        co.addArguments("--incognito");
+	    }
+
+	    // Detect CI environment automatically
+	    boolean isCI = System.getenv("CI") != null;
+
+	    // Detect headless from property
+	    boolean isHeadlessFromProp = Boolean.parseBoolean(prop.getProperty("headless"));
+
+	    // Apply headless if CI OR property enabled
+	    if (isCI || isHeadlessFromProp) {
+
+	        System.out.println("Running in HEADLESS mode");
+
+	        co.addArguments("--headless=new");
+	        co.addArguments("--no-sandbox");
+	        co.addArguments("--disable-dev-shm-usage");
+	        co.addArguments("--disable-gpu");
+	        co.addArguments("--disable-extensions");
+
+	    } else {
+
+	        System.out.println("Running in NORMAL mode");
+
+	    }
+
+	    return co;
 	}
 
 	// Get FirefoxOptions based on properties
