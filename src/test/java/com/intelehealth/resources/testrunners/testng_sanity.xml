@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+
+<suite name="intelehealth Web App Regression Test Suite">
+	<parameter name="browser" value="${browser}" />
+	
+	<listeners>
+		<listener class-name="com.intelehealth.listeners.ScreenshotListener" />
+		<listener class-name="com.intelehealth.listeners.ExtentReportListener" />
+		<listener class-name="com.intelehealth.listeners.GlobalExceptionHandler" />
+	</listeners>
+	<test name="Regression Functional Regression Test" verbose="2">
+		<classes>
+			<class name="com.intelehealth.tests.LoginPageTest"></class>
+			
+
+			<!--<class name="com.intelehealth.tests.AppointmentPageTest"></class>12
+			<class name="com.intelehealth.tests.LoginPageTest"></class>
+			<class name="com.intelehealth.tests.ProfilePageTest"></class>
+			<class name="com.intelehealth.tests.SearchPageTest"></class>
+			<class name="com.intelehealth.tests.HelpSupportLogoutTest"></class>		
+		    <class name="com.intelehealth.tests.AwaitPriortyInProgressTest"></class>-->
+			<!--
+			<class name="com.intelehealth.tests.ChatPageTest"></class>
+			<class name="com.intelehealth.tests.DashboardPageTest"></class>
+			<class name="com.intelehealth.tests.ForgotUsernamePasswordTest"></class>
+			<class name="com.intelehealth.tests.NotificationPageTest"></class>
+			<class name="com.intelehealth.tests.PrescriptionPageTest"></class>
+			
+			<class name="com.intelehealth.tests.VideoFunctionalityTest"></class>
+            <class name="com.intelehealth.tests.VisitSummaryPageTest"></class-->
+
+
+			<!--
+			<class name="com.intelehealth.tests.ProfilePageTest"></class>
+			<class name="com.intelehealth.tests.HelpSupportLogoutTest"></class>
+			<class name="com.intelehealth.tests.CalendarPageTest"></class>
+			
+			<class name="com.intelehealth.tests.SearchPageTest"></class>
+			
+			<class name="com.intelehealth.tests.CalendarPageTest"></class>
+			
+			<class name="com.intelehealth.tests.AwaitPriortyInProgressTest"></class>
+			<class name="com.intelehealth.tests.CalendarPageTest" />
+			
+			
+			
+			<class name="com.intelehealth.tests.ChatPageTest"></class>
+			<class name="com.intelehealth.tests.NotificationPageTest"></class>
+			<class name="com.intelehealth.tests.PrescriptionPageTest"></class>
+			<class name="com.intelehealth.tests.ChangePasswordLanguageTest"></class>
+						
+
+-->
+		</classes>
+	</test>
+</suite>
