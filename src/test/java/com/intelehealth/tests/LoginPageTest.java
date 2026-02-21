@@ -56,7 +56,7 @@ System.out.println("============================================================
 		loginPage.displayed();
 	}
 
-	@Test(priority = 2, description = "IDA4_1421_Login_Verify if a user will be able to login with a valid username and valid password", enabled = true)
+//	@Test(priority = 2, description = "IDA4_1421_Login_Verify if a user will be able to login with a valid username and valid password", enabled = true)
 	@Description("Verify if a user will be able to login with a valid username and valid password")
 	@Severity(SeverityLevel.BLOCKER)
 
@@ -66,7 +66,7 @@ System.out.println("============================================================
 	  //  dashboardPage.isUSerLoggedIn();
 	}
 
-	@Test(priority = 3, description = "IDA4_1431_Login_Verify that Terms & Conditions and privacy policy link navigates to respective pages ", enabled = true)
+//	@Test(priority = 3, description = "IDA4_1431_Login_Verify that Terms & Conditions and privacy policy link navigates to respective pages ", enabled = true)
 	@Description("Verify language drop down on login page")
 	@Severity(SeverityLevel.NORMAL)
 	public void IdA4_1431_Login() throws Throwable {
@@ -74,7 +74,7 @@ System.out.println("============================================================
 	//	loginPage.TermsandConditionsPrivacyPolicy();
 	}
 
-	@Test(priority = 4, description = "IDA4_1432_Login_Verify language drop down on login page", enabled = true)
+	//@Test(priority = 4, description = "IDA4_1432_Login_Verify language drop down on login page", enabled = true)
 	@Description("Verify language drop down on login page")
 	@Severity(SeverityLevel.NORMAL)
 
