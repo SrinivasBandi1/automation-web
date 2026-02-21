@@ -1,6 +1,5 @@
 name: CI — Tests → Allure → Pages → Email
 
-# trigger on push to main (or change to your branch) and allow manual runs
 on:
   push:
     branches: [ main ]
@@ -11,30 +10,30 @@ jobs:
     name: Run tests, generate Allure, publish to Pages, email link
     runs-on: ubuntu-latest
 
-    # required permissions for Pages deployment
     permissions:
       contents: read
       pages: write
       id-token: write
 
     environment:
-      # this will be filled with the page url output below (keeps UI neat)
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      # Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # prevent fetching huge history if not needed
           fetch-depth: 0
 
-      - name: Set up JDK (adjust java-version if needed)
+      # Setup Java
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: zulu
           java-version: '17'
 
+      # Cache Maven dependencies
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
@@ -43,67 +42,76 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build & run tests (maven)
-        # adjust command if you use a different Maven command (or Gradle)
-        run: mvn -B -DskipTests=false clean test
+      # Run tests
+      - name: Run Maven Tests
+        run: mvn -B clean test
 
-      # (optional) copy or adjust path: the Allure results are usually under target/allure-results
+      # Verify Allure results folder
       - name: Verify Allure results
-        run: |
-          echo "Listing target/allure-results (if present):"
-          ls -la target/allure-results || true
-
-      # load history (if gh-pages exists) so Allure can show trends
-      - name: Load test report history (gh-pages)
         if: always()
-        uses: actions/checkout@v4
+        run: |
+          echo "Checking Allure results..."
+          ls -la target/allure-results || echo "No Allure results found"
+
+      # Checkout gh-pages branch for history (if exists)
+      - name: Load previous Allure history
+        if: always()
         continue-on-error: true
+        uses: actions/checkout@v4
         with:
           ref: gh-pages
           path: gh-pages
 
-      # build the Allure HTML report (uses community action that packages history)
-      - name: Build Allure report (with history)
+      # Build Allure report
+      - name: Build Allure Report
         if: always()
-        uses: simple-elf/[email protected]
+        uses: simple-elf/allure-report-action@v1.7
         with:
-          gh_pages: gh-pages            # directory checked out in previous step
+          gh_pages: gh-pages
           allure_results: target/allure-results
           allure_history: allure-history
 
-      # Upload static site artifact that can be deployed to GitHub Pages
+      # Upload report as Pages artifact
       - name: Upload Pages artifact
         if: always()
         uses: actions/upload-pages-artifact@v1
         with:
           path: allure-history
 
-      # Deploy to GitHub Pages and get the resulting URL
+      # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         if: always()
         uses: actions/deploy-pages@v4
 
-      # Send email with clickable link (HTML body). Uses SMTP info from secrets.
+      # Send Email with clickable link
       - name: Send email with report link
         if: always()
-        uses: dawidd6/[email protected]
+        uses: dawidd6/action-send-mail@v3
         with:
-          # recommended: use a single connection url secret: "smtp://user:pass@smtp.server:587"
           connection_url: ${{ secrets.MAIL_CONNECTION }}
-          # fallback options (uncomment to use instead of connection_url)
-          # server_address: smtp.gmail.com
-          # server_port: 465
-          # username: ${{ secrets.MAIL_USERNAME }}
-          # password: ${{ secrets.MAIL_PASSWORD }}
-
-          subject: "Allure report — ${{ github.repository }} (run ${{ github.run_number }})"
-          to: your-team@example.com
-          from: "CI Server <ci@example.com>"
-          # HTML body — clickable link injected from the deployment step output
+          subject: "Allure Report - ${{ github.repository }} (Run #${{ github.run_number }})"
+          to: your-email@gmail.com
+          from: "CI Automation <your-email@gmail.com>"
           html_body: |
-            <p>Hi team,</p>
-            <p>Your Allure test report for <strong>${{ github.repository }}</strong> is available here:</p>
-            <p><a href="${{ steps.deployment.outputs.page_url }}">{{ steps.deployment.outputs.page_url }}</a></p>
-            <p>Run: <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">View run in GitHub Actions</a></p>
-            <p>Regards,<br/>CI</p>
+            <h2>Automation Test Execution Completed</h2>
+            <p><strong>Repository:</strong> ${{ github.repository }}</p>
+            <p><strong>Branch:</strong> ${{ github.ref_name }}</p>
+            <p><strong>Run Number:</strong> ${{ github.run_number }}</p>
+            <hr>
+            <p>Click below to view the Allure Report:</p>
+            <p>
+              <a href="${{ steps.deployment.outputs.page_url }}" 
+                 style="padding:10px 20px;background:#0366d6;color:white;text-decoration:none;border-radius:5px;">
+                 View Allure Report
+              </a>
+            </p>
+            <br>
+            <p>View GitHub Run:</p>
+            <p>
+              <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">
+              Open Workflow Run
+              </a>
+            </p>
+            <br>
+            <p>Regards,<br>CI Automation</p>
