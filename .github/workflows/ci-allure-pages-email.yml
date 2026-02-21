@@ -5,35 +5,31 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   test-and-publish:
     name: Run tests, generate Allure, publish to Pages, email link
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      # Checkout source code
-      - name: Checkout repository
+      - name: Checkout repository (source)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Setup Java
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           distribution: zulu
           java-version: '17'
 
-      # Cache Maven dependencies
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
@@ -42,76 +38,163 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Run tests
-      - name: Run Maven Tests
-        run: mvn -B clean test
-
-      # Verify Allure results folder
-      - name: Verify Allure results
-        if: always()
-        run: |
-          echo "Checking Allure results..."
-          ls -la target/allure-results || echo "No Allure results found"
-
-      # Checkout gh-pages branch for history (if exists)
-      - name: Load previous Allure history
-        if: always()
+      - name: Run Maven tests
+        id: mvn-test
+        run: mvn -B -DskipTests=false clean test
         continue-on-error: true
+
+      - name: Show Allure results folder (if any)
+        run: |
+          echo "ls target/allure-results"
+          ls -la target/allure-results || echo "no allure results"
+
+      # Checkout gh-pages (if exists) to preserve history for trends
+      - name: Checkout gh-pages (for history)
+        id: checkout-gh-pages
         uses: actions/checkout@v4
+        continue-on-error: true
         with:
           ref: gh-pages
           path: gh-pages
 
-      # Build Allure report
-      - name: Build Allure Report
-        if: always()
-        uses: simple-elf/allure-report-action@v1.7
-        with:
-          gh_pages: gh-pages
-          allure_results: target/allure-results
-          allure_history: allure-history
+      # Install Allure CLI (download latest stable release)
+      - name: Install Allure CLI
+        run: |
+          set -eux
+          ALLURE_VERSION="2.24.1"
+          curl -sL -o /tmp/allure.tgz "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz"
+          sudo tar -xzf /tmp/allure.tgz -C /opt
+          sudo ln -sfn /opt/allure-${ALLURE_VERSION}/bin/allure /usr/local/bin/allure
+          allure --version
 
-      # Upload report as Pages artifact
+      # Generate Allure HTML report into ./allure-report
+      - name: Generate Allure report
+        id: generate-report
+        run: |
+          set -eux
+          mkdir -p allure-report
+          if [ -d target/allure-results ] && [ "$(ls -A target/allure-results)" ]; then
+            # copy history from gh-pages if available
+            if [ -d gh-pages/history ]; then
+              echo "Copying history from gh-pages"
+              mkdir -p target/allure-results/history
+              cp -R gh-pages/history target/allure-results/history || true
+            fi
+            allure generate target/allure-results -o allure-report --clean
+            echo "Report generated at allure-report"
+            ls -la allure-report || true
+          else
+            echo "No allure results to generate report from (target/allure-results missing or empty)"
+            # create an index page to indicate no results
+            mkdir -p allure-report
+            cat > allure-report/index.html <<'HTML'
+            <html><body><h2>No Allure results were found for this run.</h2></body></html>
+            HTML
+          fi
+
+      # Move history into top-level 'history' folder (used by Allure)
+      - name: Prepare Pages content
+        run: |
+          # We'll publish the contents of ./allure-report as the Pages site.
+          # Ensure history folder exists at top-level (this helps future runs).
+          if [ -d allure-report/history ]; then
+            mkdir -p allure-history
+            cp -R allure-report/* allure-history/
+          else
+            mkdir -p allure-history
+            cp -R allure-report/* allure-history/ || true
+          fi
+          echo "Prepared allure-history for upload:"
+          ls -la allure-history || true
+
+      # Upload prepared folder to Pages artifact
       - name: Upload Pages artifact
-        if: always()
         uses: actions/upload-pages-artifact@v1
         with:
-          path: allure-history
+          path: ./allure-history
 
-      # Deploy to GitHub Pages
+      # Deploy to GitHub Pages (official action)
       - name: Deploy to GitHub Pages
         id: deployment
-        if: always()
         uses: actions/deploy-pages@v4
 
-      # Send Email with clickable link
-      - name: Send email with report link
+      # Send Email with clickable link using Python (no external send-mail action)
+      - name: Send email with report link (Python)
         if: always()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          connection_url: ${{ secrets.MAIL_CONNECTION }}
-          subject: "Allure Report - ${{ github.repository }} (Run #${{ github.run_number }})"
-          to: your-email@gmail.com
-          from: "CI Automation <your-email@gmail.com>"
-          html_body: |
-            <h2>Automation Test Execution Completed</h2>
-            <p><strong>Repository:</strong> ${{ github.repository }}</p>
-            <p><strong>Branch:</strong> ${{ github.ref_name }}</p>
-            <p><strong>Run Number:</strong> ${{ github.run_number }}</p>
-            <hr>
-            <p>Click below to view the Allure Report:</p>
-            <p>
-              <a href="${{ steps.deployment.outputs.page_url }}" 
-                 style="padding:10px 20px;background:#0366d6;color:white;text-decoration:none;border-radius:5px;">
-                 View Allure Report
-              </a>
-            </p>
-            <br>
-            <p>View GitHub Run:</p>
-            <p>
-              <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">
-              Open Workflow Run
-              </a>
-            </p>
-            <br>
-            <p>Regards,<br>CI Automation</p>
+        env:
+          MAIL_CONNECTION: ${{ secrets.MAIL_CONNECTION }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          BRANCH: ${{ github.ref_name }}
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          python3 - <<'PY'
+          import os, sys, smtplib, ssl
+          from urllib.parse import urlparse
+          import email.message as em
+
+          conn = os.getenv("MAIL_CONNECTION")
+          page_url = os.getenv("PAGE_URL") or "No Pages URL (deployment may have failed)"
+          repo = os.getenv("REPO")
+          run_id = os.getenv("RUN_ID")
+          run_number = os.getenv("RUN_NUMBER")
+          branch = os.getenv("BRANCH")
+
+          if not conn:
+            print("MAIL_CONNECTION secret not provided - skipping email.")
+            sys.exit(0)
+
+          # parse smtp://user:pass@smtp.server:587
+          parsed = urlparse(conn)
+          if parsed.scheme not in ("smtp", "smtps", "smtp+starttls"):
+            print("MAIL_CONNECTION should start with smtp:// or smtps://")
+            sys.exit(1)
+
+          username = parsed.username
+          password = parsed.password
+          host = parsed.hostname
+          port = parsed.port or (465 if parsed.scheme == "smtps" else 587)
+
+          # Compose HTML email
+          msg = em.EmailMessage()
+          sender = username
+          recipient = username  # default: send to yourself; change below if you prefer different recipient
+          # If you want a different "to" address, set it as a second secret and load here.
+          msg['From'] = f"CI Automation <{sender}>"
+          msg['To'] = recipient
+          msg['Subject'] = f"Allure Report - {repo} (Run #{run_number})"
+          html = f"""
+          <html>
+            <body>
+              <h2>Automation Test Execution Completed</h2>
+              <p><strong>Repository:</strong> {repo}</p>
+              <p><strong>Branch:</strong> {branch}</p>
+              <p><strong>Run Number:</strong> {run_number}</p>
+              <p><strong>Allure Report:</strong> <a href="{page_url}">{page_url}</a></p>
+              <p><a href="https://github.com/{repo}/actions/runs/{run_id}">Open Workflow Run</a></p>
+            </body>
+          </html>
+          """
+          msg.add_alternative(html, subtype='html')
+
+          # Send via SMTP (starttls for port 587, SSL for 465)
+          try:
+            if port == 465:
+              context = ssl.create_default_context()
+              with smtplib.SMTP_SSL(host, port, context=context) as server:
+                server.login(username, password)
+                server.send_message(msg)
+            else:
+              server = smtplib.SMTP(host, port, timeout=30)
+              server.ehlo()
+              server.starttls(context=ssl.create_default_context())
+              server.login(username, password)
+              server.send_message(msg)
+              server.quit()
+            print("Email sent successfully to", recipient)
+          except Exception as e:
+            print("Failed to send email:", e)
+            # don't fail the job because email sending is auxiliary
+            sys.exit(0)
+          PY
